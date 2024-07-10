@@ -1,5 +1,4 @@
-package org.example.client;
-
+package client;
 
 public class ProgressBar {
 
