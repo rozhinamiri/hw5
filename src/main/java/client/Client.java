@@ -1,4 +1,5 @@
 package client;
+import models.Database;
 import utils.NetworkUtil;
 
 
@@ -41,27 +42,56 @@ public class Client {
         }
     }
 
-    private static void viewFiles(Socket socket) throws IOException {
-        DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-        dos.writeUTF("VIEW_FILES");
+    private static void viewFiles(Socket socket) {
+        try {
+            DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+            DataInputStream dis = new DataInputStream(socket.getInputStream());
 
-        DataInputStream dis = new DataInputStream(socket.getInputStream());
-        int fileCount = dis.readInt();
-        System.out.println("Files available for download:");
-        for (int i = 0; i < fileCount; i++) {
-            String fileId = dis.readUTF();
-            String fileName = dis.readUTF();
-            System.out.println(fileId + ": " + fileName);
+            dos.writeUTF("VIEW_FILES");
+            int fileCount = dis.readInt();
+
+
+            if (fileCount ==0) {
+                System.out.println("No files available.");
+                return;
+            }
+
+            System.out.println("Files available:");
+            for (int i = 0; i < fileCount; i++) {
+                String fileName = dis.readUTF();
+                String fileId = dis.readUTF();
+                System.out.println((i + 1) + ". " + fileName+"->"+fileId);
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
-
-    private static void downloadFile(Socket socket) throws IOException {
+    private static void downloadFile(Socket socket) {
         Scanner scanner = new Scanner(System.in);
-        System.out.print("Enter the file ID to download: ");
-        String fileId = scanner.nextLine();
-        System.out.print("Enter the name to save the file as: ");
-        String fileName = scanner.nextLine();
-        DownloadFile.downloadFile(socket, fileId, fileName);
+        try {
+            System.out.print("Enter the file ID to download: ");
+            String fileId = scanner.nextLine();
+
+            DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+            DataInputStream dis = new DataInputStream(socket.getInputStream());
+
+            dos.writeUTF("DOWNLOAD");
+            dos.writeUTF(fileId);
+            String response = dis.readUTF();
+            if (response.equals("FILE_NOT_FOUND")) {
+                System.out.println("File not found.");
+                return;
+            }
+
+//            long fileSize = dis.readLong();
+            String fileName = dis.readUTF(); // read file name from server
+
+            DownloadFile.downloadFile(socket, fileId, fileName);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 

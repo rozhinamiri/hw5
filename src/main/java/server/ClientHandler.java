@@ -45,6 +45,9 @@ public class ClientHandler extends Thread {
                     case "DOWNLOAD":
                         handleDownload();
                         break;
+                    case "VIEW_FILES":
+                        handleViewFiles();
+                        break;
                     default:
                         dos.writeUTF("INVALID_ACTION");
                         break;
@@ -112,8 +115,15 @@ public class ClientHandler extends Thread {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
+        System.out.println(fileName);
 
-        File file = new File("server_files/" + fileId);
+        File directory = new File("server_files");
+        if (!directory.exists()) {
+            directory.mkdirs();  // Creates the directory, including any necessary but nonexistent parent directories
+        }
+
+        // Create the file within the directory
+        File file = new File(directory, fileId + "_" + fileName);
         try (FileOutputStream fos = new FileOutputStream(file)) {
             byte[] buffer = new byte[4096];
             int bytesRead;
@@ -121,6 +131,8 @@ public class ClientHandler extends Thread {
                 fos.write(buffer, 0, bytesRead);
                 fileSize -= bytesRead;
             }
+        } catch (IOException e) {
+            e.printStackTrace();  // Handle the exception appropriately
         }
 
         synchronized (Database.fileList) {
@@ -129,6 +141,18 @@ public class ClientHandler extends Thread {
 
         dos.writeUTF("UPLOAD_SUCCESS");
     }
+    private void handleViewFiles() throws IOException {
+        synchronized (Database.fileList) {
+            dos.writeInt(Database.fileList.size());
+            for (FileInfo fileInfo : Database.fileList) {
+                System.out.println(fileInfo.getFileName());
+                System.out.println(fileInfo);
+            }
+            dos.writeUTF("VIEW_FILES_COMPLETE");
+        }
+
+    }
+
 
     private void handleDownload() throws IOException {
         String fileId = dis.readUTF();

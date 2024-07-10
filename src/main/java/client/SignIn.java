@@ -31,7 +31,7 @@ public class SignIn {
             System.out.println(response);
             if (response.equals("LOGIN_SUCCESS")) {
                 System.out.println("Log-in successful!");
-                showOptions(socket);
+                Client.showFileOptions(socket);
             } else {
                 System.out.println("Invalid username or password.");
             }

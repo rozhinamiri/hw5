@@ -1,5 +1,7 @@
 package client;
 
+import models.Database;
+
 import java.io.*;
 import java.net.Socket;
 import java.util.Scanner;
@@ -19,6 +21,7 @@ public class UploadFile {
             }
 
             DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
+            DataInputStream dis = new DataInputStream(socket.getInputStream());
             dos.writeUTF("UPLOAD");
             dos.writeUTF(file.getName());
             dos.writeLong(file.length());
@@ -32,7 +35,8 @@ public class UploadFile {
             }
 
             fis.close();
-            System.out.println("Upload complete!");
+           String response = dis.readUTF();
+            System.out.println(response);
 
         } catch (IOException e) {
             e.printStackTrace();
