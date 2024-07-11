@@ -3,9 +3,7 @@ import models.Database;
 import utils.NetworkUtil;
 
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.Socket;
 import java.util.Scanner;
 
@@ -22,7 +20,7 @@ public class Client {
             System.out.println("4. Logout");
             System.out.print("Choose an option: ");
             int choice = scanner.nextInt();
-            scanner.nextLine(); // consume newline
+            scanner.nextLine();
 
             switch (choice) {
                 case 1:
@@ -35,7 +33,7 @@ public class Client {
                     downloadFile(socket);
                     break;
                 case 4:
-                    return; // Exit to main menu
+                    return;
                 default:
                     System.out.println("Invalid option. Please try again.");
             }
@@ -78,21 +76,40 @@ public class Client {
 
             dos.writeUTF("DOWNLOAD");
             dos.writeUTF(fileId);
+
             String response = dis.readUTF();
             if (response.equals("FILE_NOT_FOUND")) {
                 System.out.println("File not found.");
                 return;
+            } else if (response.equals("DOWNLOAD_SUCCESS")) {
+                String fileName = dis.readUTF();
+                long fileSize = dis.readLong();
+
+                System.out.print("Enter the directory to save the file: ");
+                String saveDir = scanner.nextLine();
+                File savePath = new File(saveDir, fileName);
+
+                try (FileOutputStream fos = new FileOutputStream(savePath)) {
+                    byte[] buffer = new byte[4096];
+                    int bytesRead;
+                    long totalRead = 0;
+
+                    while (totalRead < fileSize && (bytesRead = dis.read(buffer, 0, (int) Math.min(buffer.length, fileSize - totalRead))) != -1) {
+                        fos.write(buffer, 0, bytesRead);
+                        totalRead += bytesRead;
+                    }
+
+                    System.out.println("Download complete!");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
-
-//            long fileSize = dis.readLong();
-            String fileName = dis.readUTF(); // read file name from server
-
-            DownloadFile.downloadFile(socket, fileId, fileName);
 
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
 
 
     public static void main(String[] args) {
@@ -105,7 +122,7 @@ public class Client {
                 System.out.println("3. Exit");
                 System.out.print("Choose an option: ");
                 int choice = scanner.nextInt();
-                scanner.nextLine(); // consume newline
+                scanner.nextLine();
 
                 switch (choice) {
                     case 1:

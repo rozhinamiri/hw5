@@ -119,10 +119,10 @@ public class ClientHandler extends Thread {
 
         File directory = new File("server_files");
         if (!directory.exists()) {
-            directory.mkdirs();  // Creates the directory, including any necessary but nonexistent parent directories
+            directory.mkdirs();
         }
 
-        // Create the file within the directory
+
         File file = new File(directory, fileId + "_" + fileName);
         try (FileOutputStream fos = new FileOutputStream(file)) {
             byte[] buffer = new byte[4096];
@@ -132,7 +132,7 @@ public class ClientHandler extends Thread {
                 fileSize -= bytesRead;
             }
         } catch (IOException e) {
-            e.printStackTrace();  // Handle the exception appropriately
+            e.printStackTrace();
         }
 
         synchronized (Database.fileList) {
@@ -144,11 +144,13 @@ public class ClientHandler extends Thread {
     private void handleViewFiles() throws IOException {
         synchronized (Database.fileList) {
             dos.writeInt(Database.fileList.size());
+
             for (FileInfo fileInfo : Database.fileList) {
-                System.out.println(fileInfo.getFileName());
-                System.out.println(fileInfo);
+                dos.writeUTF(fileInfo.getFileName());
+
+                dos.writeUTF(fileInfo.getFileId());
             }
-            dos.writeUTF("VIEW_FILES_COMPLETE");
+//            dos.writeUTF("VIEW_FILES_COMPLETE");
         }
 
     }
@@ -160,9 +162,10 @@ public class ClientHandler extends Thread {
         synchronized (Database.fileList) {
             for (FileInfo fileInfo : Database.fileList) {
                 if (fileInfo.getFileId().equals(fileId)) {
+                    dos.writeUTF("DOWNLOAD_SUCCESS");
+                    dos.writeUTF(fileInfo.getFileName());
                     dos.writeLong(fileInfo.getFileSize());
-
-                    File file = new File("server_files/" + fileId);
+                    File file = new File("server_files/" + fileInfo.getFileId() + "_" + fileInfo.getFileName());
                     try (FileInputStream fis = new FileInputStream(file)) {
                         byte[] buffer = new byte[4096];
                         int bytesRead;
@@ -177,4 +180,6 @@ public class ClientHandler extends Thread {
 
         dos.writeUTF("FILE_NOT_FOUND");
     }
+
+
 }
