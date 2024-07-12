@@ -59,9 +59,12 @@ public class ClientHandler extends Thread {
             e.printStackTrace();
         } finally {
             try {
-                if (dis != null) dis.close();
-                if (dos != null) dos.close();
-                if (socket != null) socket.close();
+                if (dis != null)
+                    dis.close();
+                if (dos != null)
+                    dos.close();
+                if (socket != null)
+                    socket.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -122,7 +125,6 @@ public class ClientHandler extends Thread {
             directory.mkdirs();
         }
 
-
         File file = new File(directory, fileId + "_" + fileName);
         try (FileOutputStream fos = new FileOutputStream(file)) {
             byte[] buffer = new byte[4096];
@@ -141,6 +143,7 @@ public class ClientHandler extends Thread {
 
         dos.writeUTF("UPLOAD_SUCCESS");
     }
+
     private void handleViewFiles() throws IOException {
         synchronized (Database.fileList) {
             dos.writeInt(Database.fileList.size());
@@ -150,36 +153,13 @@ public class ClientHandler extends Thread {
 
                 dos.writeUTF(fileInfo.getFileId());
             }
-//            dos.writeUTF("VIEW_FILES_COMPLETE");
+            // dos.writeUTF("VIEW_FILES_COMPLETE");
         }
 
     }
-
 
     private void handleDownload() throws IOException {
-        String fileId = dis.readUTF();
 
-        synchronized (Database.fileList) {
-            for (FileInfo fileInfo : Database.fileList) {
-                if (fileInfo.getFileId().equals(fileId)) {
-                    dos.writeUTF("DOWNLOAD_SUCCESS");
-                    dos.writeUTF(fileInfo.getFileName());
-                    dos.writeLong(fileInfo.getFileSize());
-                    File file = new File("server_files/" + fileInfo.getFileId() + "_" + fileInfo.getFileName());
-                    try (FileInputStream fis = new FileInputStream(file)) {
-                        byte[] buffer = new byte[4096];
-                        int bytesRead;
-                        while ((bytesRead = fis.read(buffer)) != -1) {
-                            dos.write(buffer, 0, bytesRead);
-                        }
-                    }
-                    return;
-                }
-            }
-        }
-
-        dos.writeUTF("FILE_NOT_FOUND");
     }
-
 
 }

@@ -12,11 +12,11 @@ public class Server {
     private static final int PORT = 8888; // Changed port number to avoid conflict
 
     public static void main(String[] args) {
-
+        // Load data from JSON at startup
         Database.loadFromJSON();
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-
+            // Save data to JSON at shutdown
             Database.saveToJSON();
         }));
 

@@ -1,16 +1,34 @@
 package client;
+
 import models.Database;
+import server.FileTransferServer;
 import utils.NetworkUtil;
 
-
 import java.io.*;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.Scanner;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Client {
 
     private static Socket socket;
     private static Scanner scanner = new Scanner(System.in);
+
+    private static final int FILE_SERVER_PORT = 9876;
+    private static final int CHUNK_SIZE = 4096;
+    private static final int TOTAL_CHUNKS = 5;
+
+    public static Object lock = new Object();
+
     static void showFileOptions(Socket socket) throws IOException {
         Scanner scanner = new Scanner(System.in);
         while (true) {
@@ -48,8 +66,7 @@ public class Client {
             dos.writeUTF("VIEW_FILES");
             int fileCount = dis.readInt();
 
-
-            if (fileCount ==0) {
+            if (fileCount == 0) {
                 System.out.println("No files available.");
                 return;
             }
@@ -58,59 +75,88 @@ public class Client {
             for (int i = 0; i < fileCount; i++) {
                 String fileName = dis.readUTF();
                 String fileId = dis.readUTF();
-                System.out.println((i + 1) + ". " + fileName+"->"+fileId);
+                System.out.println((i + 1) + ". " + fileName + "->" + fileId);
             }
 
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
     private static void downloadFile(Socket socket) {
-        Scanner scanner = new Scanner(System.in);
         try {
+            InetAddress serverAddress = InetAddress.getByName("localhost");
+            DatagramSocket clientSocket = new DatagramSocket();
+            Scanner scanner = new Scanner(System.in);
+
             System.out.print("Enter the file ID to download: ");
             String fileId = scanner.nextLine();
 
-            DataOutputStream dos = new DataOutputStream(socket.getOutputStream());
-            DataInputStream dis = new DataInputStream(socket.getInputStream());
+            // Send download request
+            String request = "DOWNLOAD " + fileId;
+            byte[] sendBuffer = request.getBytes();
+            DatagramPacket sendPacket = new DatagramPacket(sendBuffer, sendBuffer.length, serverAddress,
+                    FILE_SERVER_PORT);
+            clientSocket.send(sendPacket);
 
-            dos.writeUTF("DOWNLOAD");
-            dos.writeUTF(fileId);
+            byte[] receiveBuffer = new byte[1024];
+            DatagramPacket receivePacket = new DatagramPacket(receiveBuffer, receiveBuffer.length);
+            clientSocket.receive(receivePacket);
 
-            String response = dis.readUTF();
-            if (response.equals("FILE_NOT_FOUND")) {
+            String response = new String(receivePacket.getData(), 0, receivePacket.getLength());
+            if (response.startsWith("FILE_NOT_FOUND")) {
                 System.out.println("File not found.");
                 return;
-            } else if (response.equals("DOWNLOAD_SUCCESS")) {
-                String fileName = dis.readUTF();
-                long fileSize = dis.readLong();
+            } else if (response.startsWith("DOWNLOAD_SUCCESS")) {
+                String[] parts = response.split(" ");
+                String fileName = parts[1];
+                long fileSize = Long.parseLong(parts[2]);
+                long allChunks = Long.parseLong(parts[3]);
+
+                System.out.println(fileSize);
+                System.out.println(allChunks);
 
                 System.out.print("Enter the directory to save the file: ");
                 String saveDir = scanner.nextLine();
                 File savePath = new File(saveDir, fileName);
 
-                try (FileOutputStream fos = new FileOutputStream(savePath)) {
-                    byte[] buffer = new byte[4096];
-                    int bytesRead;
-                    long totalRead = 0;
+                // Array to store chunks
+                byte[][] chunks = new byte[TOTAL_CHUNKS][];
+                AtomicInteger receivedChunks = new AtomicInteger(0);
 
-                    while (totalRead < fileSize && (bytesRead = dis.read(buffer, 0, (int) Math.min(buffer.length, fileSize - totalRead))) != -1) {
-                        fos.write(buffer, 0, bytesRead);
-                        totalRead += bytesRead;
-                    }
+                Thread[] threads = new Thread[TOTAL_CHUNKS];
 
-                    System.out.println("Download complete!");
-                } catch (IOException e) {
-                    e.printStackTrace();
+                for (int i = 0; i < TOTAL_CHUNKS; i++) {
+                    threads[i] = new Thread(new FileChunkReceiver(clientSocket, chunks,
+                            receivedChunks, allChunks, new ThreadInterface() {
+                        @Override
+                        public void onAllThreadsDone() {
+                            for (Thread thread : threads) {
+                                thread.interrupt();
+                            }
+
+                            // Write received chunks to file
+                            try (RandomAccessFile raf = new RandomAccessFile(savePath, "rw")) {
+                                for (int i = 0; i < TOTAL_CHUNKS; i++) {
+                                    if (chunks[i] != null) {
+                                        raf.write(chunks[i]);
+                                    }
+                                }
+
+                                System.out.println("Download is done!");
+                            } catch (Exception ex) {
+
+                            }
+                        }
+                    }));
+                    threads[i].start();
                 }
-            }
 
-        } catch (IOException e) {
+            }
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
-
 
     public static void main(String[] args) {
         try {
